@@ -1,3 +1,6 @@
+import numpy as np
+import datetime
+import uuid
 import pynwb
 from pynwb.base import TimeSeries, Images
 from pynwb.behavior import BehavioralEvents
@@ -304,3 +307,31 @@ def add_stimulus_index(nwbfile, stimulus_index, nwb_template):
         indexed_timeseries=nwb_template,
         timestamps=stimulus_index.index.values)
     nwbfile.add_stimulus(image_index)
+
+
+def add_metadata(nwbfile, metadata, nwb_metadata_class, name):
+
+    new_metadata_dict = {}
+    for key, val in metadata.items():
+        if isinstance(val, list):
+            new_metadata_dict[key] = np.array(val)
+        elif isinstance(val, (datetime.datetime, uuid.UUID)):
+            new_metadata_dict[key] = str(val)
+        else:
+            new_metadata_dict[key] = val
+    nwb_metadata = nwb_metadata_class(name=name, **new_metadata_dict)
+    nwbfile.add_lab_meta_data(nwb_metadata)
+
+
+def add_task_parameters(nwbfile, task_parameters, nwb_metadata_class, name):
+
+    new_metadata_dict = {}
+    for key, val in task_parameters.items():
+        if isinstance(val, list):
+            new_metadata_dict[key] = np.array(val)
+        elif isinstance(val, (datetime.datetime, uuid.UUID)):
+            new_metadata_dict[key] = str(val)
+        else:
+            new_metadata_dict[key] = val
+    nwb_metadata = nwb_metadata_class(name=name, **new_metadata_dict)
+    nwbfile.add_lab_meta_data(nwb_metadata)

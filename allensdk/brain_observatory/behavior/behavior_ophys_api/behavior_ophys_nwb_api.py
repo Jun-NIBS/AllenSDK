@@ -4,9 +4,14 @@ import pandas as pd
 import allensdk.brain_observatory.nwb as nwb
 import numpy as np
 import SimpleITK as sitk
+import pytz
+import uuid
+import h5py
 
 from allensdk.brain_observatory.nwb.nwb_api import NwbApi
 from allensdk.brain_observatory.behavior.trials_processing import TRIAL_COLUMN_DESCRIPTION_DICT
+from allensdk.brain_observatory.behavior.schemas import OphysBehaviorMetaDataSchema, OphysBehaviorTaskParametersSchema
+from allensdk.brain_observatory.nwb.metadata import load_LabMetaData_extension
 
 
 class BehaviorOphysNwbApi(NwbApi):
@@ -16,46 +21,56 @@ class BehaviorOphysNwbApi(NwbApi):
         nwbfile = NWBFile(
             session_description=str(session_object.metadata['session_type']),
             identifier=str(session_object.ophys_experiment_id),
-            session_start_time=session_object.metadata['experiment_date'],
-            file_create_date=datetime.datetime.now()
+            session_start_time=session_object.metadata['experiment_datetime'],
+            file_create_date=pytz.utc.localize(datetime.datetime.now())
         )
 
-        # Add stimulus_timestamps to NWB in-memory object:
-        nwb.add_stimulus_timestamps(nwbfile, session_object.stimulus_timestamps)
+        # # Add stimulus_timestamps to NWB in-memory object:
+        # nwb.add_stimulus_timestamps(nwbfile, session_object.stimulus_timestamps)
 
-        # Add running data to NWB in-memory object:
-        unit_dict = {'v_sig': 'V', 'v_in': 'V', 'speed': 'cm/s', 'timestamps': 's', 'dx': 'cm'}
-        nwb.add_running_data_df_to_nwbfile(nwbfile, session_object.running_data_df, unit_dict)
+        # # Add running data to NWB in-memory object:
+        # unit_dict = {'v_sig': 'V', 'v_in': 'V', 'speed': 'cm/s', 'timestamps': 's', 'dx': 'cm'}
+        # nwb.add_running_data_df_to_nwbfile(nwbfile, session_object.running_data_df, unit_dict)
 
-        # Add ophys to NWB in-memory object:
-        nwb.add_ophys_timestamps(nwbfile, session_object.ophys_timestamps)
+        # # Add ophys to NWB in-memory object:
+        # nwb.add_ophys_timestamps(nwbfile, session_object.ophys_timestamps)
 
-        # Add stimulus template data to NWB in-memory object:
-        for name, image_data in session_object.stimulus_templates.items():
-            nwb.add_stimulus_template(nwbfile, image_data, name)
+        # # Add stimulus template data to NWB in-memory object:
+        # for name, image_data in session_object.stimulus_templates.items():
+        #     nwb.add_stimulus_template(nwbfile, image_data, name)
 
-            # Add index for this template to NWB in-memory object:
-            nwb_template = nwbfile.stimulus_template[name]
-            stimulus_index = session_object.stimulus_index[session_object.stimulus_index['image_set'] == nwb_template.name]
-            nwb.add_stimulus_index(nwbfile, stimulus_index, nwb_template)
+        #     # Add index for this template to NWB in-memory object:
+        #     nwb_template = nwbfile.stimulus_template[name]
+        #     stimulus_index = session_object.stimulus_index[session_object.stimulus_index['image_set'] == nwb_template.name]
+        #     nwb.add_stimulus_index(nwbfile, stimulus_index, nwb_template)
 
-        # Add stimulus presentations data to NWB in-memory object:
-        nwb.add_stimulus_presentations(nwbfile, session_object.stimulus_presentations)
+        # # Add stimulus presentations data to NWB in-memory object:
+        # nwb.add_stimulus_presentations(nwbfile, session_object.stimulus_presentations)
 
-        # Add trials data to NWB in-memory object:
-        nwb.add_trials(nwbfile, session_object.trials, TRIAL_COLUMN_DESCRIPTION_DICT)
+        # # Add trials data to NWB in-memory object:
+        # nwb.add_trials(nwbfile, session_object.trials, TRIAL_COLUMN_DESCRIPTION_DICT)
 
-        # Add licks data to NWB in-memory object:
-        nwb.add_licks(nwbfile, session_object.licks)
+        # # Add licks data to NWB in-memory object:
+        # nwb.add_licks(nwbfile, session_object.licks)
 
-        # Add rewards data to NWB in-memory object:
-        nwb.add_rewards(nwbfile, session_object.rewards)
+        # # Add rewards data to NWB in-memory object:
+        # nwb.add_rewards(nwbfile, session_object.rewards)
 
-        # Add max_projection image data to NWB in-memory object:
-        nwb.add_max_projection(nwbfile, session_object.max_projection)
+        # # Add max_projection image data to NWB in-memory object:
+        # nwb.add_max_projection(nwbfile, session_object.max_projection)
 
-        # Add average_image image data to NWB in-memory object:
-        nwb.add_average_image(nwbfile, session_object.average_image)
+        # # Add average_image image data to NWB in-memory object:
+        # nwb.add_average_image(nwbfile, session_object.average_image)
+
+        # Add metadata to NWB in-memory object:
+        OphysBehaviorMetaData = load_LabMetaData_extension(OphysBehaviorMetaDataSchema, 'AIBS_ophys_behavior')
+        metadata = OphysBehaviorMetaDataSchema().dump(session_object.metadata)
+        nwb.add_metadata(nwbfile, metadata, OphysBehaviorMetaData, 'metadata')
+
+        # Add task parameters to NWB in-memory object:
+        OphysBehaviorTaskParameters = load_LabMetaData_extension(OphysBehaviorTaskParametersSchema, 'AIBS_ophys_behavior')
+        task_parameters = OphysBehaviorTaskParametersSchema().dump(session_object.task_parameters)
+        nwb.add_task_parameters(nwbfile, task_parameters, OphysBehaviorTaskParameters, 'task_parameters')
 
         # Write the file:
         with NWBHDF5IO(self.path, 'w') as nwb_file_writer:
@@ -126,3 +141,21 @@ class BehaviorOphysNwbApi(NwbApi):
         stimulus_index_df.set_index('timestamps', inplace=True)
         stimulus_index_df.sort_index(inplace=True)
         return stimulus_index_df
+
+    def get_metadata(self) -> dict:
+
+        if self.path is None:
+            metadata_nwb_obj = self.nwbfile.lab_meta_data['metadata']
+            data = OphysBehaviorMetaDataSchema(exclude=['experiment_datetime']).dump(metadata_nwb_obj)
+            experiment_datetime = metadata_nwb_obj.experiment_datetime
+        else:
+            f = h5py.File(self.path, 'r')
+            data = dict(f['general/metadata'].attrs)
+            data.pop('namespace')
+            data.pop('neurodata_type')
+            f.close()
+            experiment_datetime = data['experiment_datetime']
+            data['driver_line'] = OphysBehaviorMetaDataSchema().load({'driver_line': data['driver_line']}, partial=True)['driver_line']            
+        data['experiment_datetime'] = OphysBehaviorMetaDataSchema().load({'experiment_datetime': experiment_datetime}, partial=True)['experiment_datetime']            
+        data['behavior_session_uuid'] = uuid.UUID(data['behavior_session_uuid'])
+        return data

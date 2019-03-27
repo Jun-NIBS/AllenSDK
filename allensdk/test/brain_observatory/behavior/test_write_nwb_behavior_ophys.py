@@ -4,6 +4,8 @@ import numpy as np
 
 import allensdk.brain_observatory.nwb as nwb
 from allensdk.brain_observatory.behavior.behavior_ophys_api.behavior_ophys_nwb_api import BehaviorOphysNwbApi
+from allensdk.brain_observatory.behavior.schemas import OphysBehaviorMetaDataSchema
+from allensdk.brain_observatory.nwb.metadata import load_LabMetaData_extension
 
 
 @pytest.mark.parametrize('roundtrip', [True, False])
@@ -171,3 +173,41 @@ def test_add_stimulus_index(nwbfile, roundtrip, roundtripper, stimulus_index, st
         obt = BehaviorOphysNwbApi.from_nwbfile(nwbfile)
 
     pd.testing.assert_frame_equal(stimulus_index, obt.get_stimulus_index(), check_dtype=False)
+
+
+@pytest.mark.parametrize('roundtrip', [True, False])
+def test_add_metadata(nwbfile, roundtrip, roundtripper, metadata):
+
+    # Load NWB metadata extension classes:
+    OphysBehaviorMetaData = load_LabMetaData_extension(OphysBehaviorMetaDataSchema, 'AIBS_ophys_behavior')
+    nwb.add_metadata(nwbfile, metadata, OphysBehaviorMetaData, 'metadata')
+
+    if roundtrip:
+        obt = roundtripper(nwbfile, BehaviorOphysNwbApi)
+    else:
+        obt = BehaviorOphysNwbApi.from_nwbfile(nwbfile)
+
+    metadata_obt = obt.get_metadata()
+
+    assert len(metadata_obt) == len(metadata)
+    for key, val in metadata.items():
+        assert val == metadata_obt[key]
+
+
+@pytest.mark.parametrize('roundtrip', [True, False])
+def test_add_task_parameters(nwbfile, roundtrip, roundtripper, task_parameters):
+
+    # Load NWB metadata extension classes:
+    OphysBehaviorTaskParameters = load_LabMetaData_extension(OphysBehaviorTaskParametersSchema, 'AIBS_ophys_behavior')
+    nwb.add_task_parameters(nwbfile, task_parameters, OphysBehaviorTaskParameters, 'task_parameters')
+
+    if roundtrip:
+        obt = roundtripper(nwbfile, BehaviorOphysNwbApi)
+    else:
+        obt = BehaviorOphysNwbApi.from_nwbfile(nwbfile)
+
+    task_parameters_obt = obt.get_task_parameters()
+
+    assert len(task_parameters_obt) == len(task_parameters)
+    for key, val in task_parameters.items():
+        assert val == task_parameters_obt[key]
